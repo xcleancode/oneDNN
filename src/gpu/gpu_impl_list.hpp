@@ -32,6 +32,12 @@ namespace gpu {
     impl_list_item_t( \
             impl_list_item_t::type_deduction_helper_t<__VA_ARGS__::pd_t>()),
 
+#if defined(DNNL_WITH_SYCL)
+#define INSTANCE_DPCPP(...) INSTANCE(__VA_ARGS__)
+#else
+#define INSTANCE_DPCPP(...)
+#endif
+
 #define DECLARE_IMPL_LIST(kind) \
     const impl_list_item_t *get_##kind##_impl_list(const kind##_desc_t *desc);
 

@@ -109,6 +109,13 @@ if(NOT DNNL_GPU_RUNTIME STREQUAL "NONE")
 endif()
 
 if(DNNL_WITH_SYCL)
+    # Enable linking SYCL kernels.
+	if(DNNL_SYCL_CUDA)
+		# Linker flags.
+		append(CMAKE_SHARED_LINKER_FLAGS "-fsycl-targets=nvptx64-nvidia-cuda")
+		append(CMAKE_STATIC_LINKER_FLAGS "-fsycl-targets=nvptx64-nvidia-cuda")
+	endif()
+
     add_subdirectory(sycl)
 endif()
 
@@ -206,3 +213,4 @@ if(WIN32)
     endif()
     set(CTESTCONFIG_PATH "${CTESTCONFIG_PATH}" PARENT_SCOPE)
 endif()
+

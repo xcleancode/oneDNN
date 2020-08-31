@@ -21,6 +21,12 @@ file(GLOB_RECURSE SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
     )
 
+if(DNNL_SYCL_CUDA)
+    # Compile flags.
+    append(CMAKE_CXX_FLAGS "-fsycl-targets=nvptx64-nvidia-cuda")
+    append(CMAKE_CXX_FLAGS "-Wno-linker-warnings")
+endif()
+
 set(OBJ_LIB ${DNNL_LIBRARY_NAME}_gpu_sycl)
 add_library(${OBJ_LIB} OBJECT ${SOURCES})
 set_property(GLOBAL APPEND PROPERTY DNNL_LIB_DEPS

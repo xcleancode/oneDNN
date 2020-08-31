@@ -23,6 +23,8 @@ namespace dnnl {
 namespace impl {
 namespace gpu {
 
+using namespace data_type;
+
 namespace {
 
 // clang-format off
