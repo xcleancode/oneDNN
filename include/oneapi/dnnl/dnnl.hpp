@@ -2466,6 +2466,30 @@ struct memory : public handle<dnnl_memory_t> {
 
     /// A memory descriptor.
     struct desc {
+        struct sparse_desc {
+            sparse_desc(dnnl_sparse_encoding_t encoding, const dims &dims_order,
+                    dim nnze, const std::vector<data_type> &metadata_types,
+                    const dims &entry_dims, const dims &structure_dims,
+                    const dims &structure_nnz, bool allow_empty = false) {
+                std::vector<dnnl_data_type_t> c_metadata_types(
+                        metadata_types.size());
+                for (size_t i = 0; i < c_metadata_types.size(); i++) {
+                    c_metadata_types[i] = convert_to_c(metadata_types[i]);
+                }
+                // TODO: check structure_dims.size() == structure_nnz.size();
+                dnnl_status_t status = dnnl_sparse_desc_init(&data, encoding,
+                        (int)dims_order.size(), dims_order.data(), nnze,
+                        (int)c_metadata_types.size(), c_metadata_types.data(),
+                        (int)entry_dims.size(), entry_dims.data(),
+                        (int)structure_dims.size(), structure_dims.data(),
+                        structure_nnz.data());
+                if (!allow_empty)
+                    error::wrap_c_api(
+                            status, "could not construct a sparse descriptor");
+            }
+            dnnl_sparse_desc_t data;
+        };
+
         friend struct memory;
         /// The underlying C API data structure.
         dnnl_memory_desc_t data;
@@ -2535,6 +2559,50 @@ struct memory : public handle<dnnl_memory_t> {
         ///
         /// @param data A C API ::dnnl_memory_desc_t structure.
         desc(const dnnl_memory_desc_t &data) : data(data) {}
+
+        /// Constructor to create a sparse memory descriptor.
+        desc(const dims &adims, data_type adata_type,
+                const sparse_desc &sparse_desc, bool allow_empty = false) {
+            dnnl_status_t status = dnnl_memory_desc_init_by_sparse_desc(&data,
+                    (int)adims.size(), adims.data(), convert_to_c(adata_type),
+                    &sparse_desc.data);
+            if (!allow_empty)
+                error::wrap_c_api(status,
+                        "could not construct a memory descriptor for the given "
+                        "sparse descriptor");
+        }
+
+        /// Function for creating CSR sparse desc with unstructured sparsity.
+        static sparse_desc csr(dim nnze, data_type index_type,
+                data_type pointer_type, bool allow_empty = false) {
+            return sparse_desc(dnnl_sparse_encoding_csr, {0, 1}, nnze,
+                    {index_type, pointer_type}, {}, {}, {}, allow_empty);
+        }
+
+        /// Function for creating CSC sparse desc with unstructured sparsity.
+        static sparse_desc csc(dim nnze, data_type index_type,
+                data_type pointer_type, bool allow_empty = false) {
+            return sparse_desc(dnnl_sparse_encoding_csc, {1, 0}, nnze,
+                    {index_type, pointer_type}, {}, {}, {}, allow_empty);
+        }
+
+        /// Function for creating BCSR sparse desc with unstructured sparsity.
+        static sparse_desc bcsr(dim nnze, data_type index_type,
+                data_type pointer_type, const dims &block_dims,
+                bool allow_empty = false) {
+            return sparse_desc(dnnl_sparse_encoding_bcsr, {0, 1}, nnze,
+                    {index_type, pointer_type}, block_dims, {}, {},
+                    allow_empty);
+        }
+
+        /// Function for creating BCSC sparse desc unstructured sparsity.
+        static sparse_desc bcsc(dim nnze, data_type index_type,
+                data_type pointer_type, const dims &block_dims,
+                bool allow_empty = false) {
+            return sparse_desc(dnnl_sparse_encoding_bcsc, {1, 0}, nnze,
+                    {index_type, pointer_type}, block_dims, {}, {},
+                    allow_empty);
+        }
 
         /// Constructs a memory descriptor for a region inside an area
         /// described by this memory descriptor.
@@ -2682,6 +2750,18 @@ struct memory : public handle<dnnl_memory_t> {
         ///     for the memory object described by this memory descriptor
         ///     including the padding area.
         size_t get_size() const { return dnnl_memory_desc_get_size(&data); }
+
+        /// Returns the size of a values and metadata for a particular sparse
+        /// encoding.
+        ///
+        /// @param index Index that correspondes to values or metadata.
+        ///     Each sparse encoding defines index interpretation.
+        ///
+        /// @returns The number of bytes required for values or metadata for a
+        ///     particular sparse encoding described by a memory descriptor.
+        size_t get_size(int index) const {
+            return dnnl_memory_desc_get_size_sparse(&data, index);
+        }
 
         /// Checks whether the memory descriptor is zero (empty).
         /// @returns @c true if the memory descriptor describes an empty

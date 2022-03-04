@@ -56,6 +56,7 @@ const char *dnnl_fmt_kind2str(dnnl_format_kind_t v) {
     if (v == dnnl_blocked) return "blocked";
     if (v == dnnl_format_kind_wino) return "wino";
     if (v == dnnl_format_kind_rnn_packed) return "rnn_packed";
+    if (v == dnnl_format_sparse) return "format_sparse";
     assert(!"unknown fmt_kind");
     return "unknown fmt_kind";
 }
@@ -1186,6 +1187,18 @@ const char *dnnl_alg_kind2str(dnnl_alg_kind_t v) {
     if (v == dnnl_softmax_log) return "softmax_log";
     assert(!"unknown alg_kind");
     return "unknown alg_kind";
+}
+
+const char *dnnl_sparse_encoding2str(dnnl_sparse_encoding_t v) {
+    if (v == dnnl_sparse_encoding_undef) return "undef";
+    if (v == dnnl_sparse_encoding_any) return "any";
+    if (v == dnnl_sparse_encoding_csr) return "sparse_encoding_csr";
+    if (v == dnnl_sparse_encoding_csc) return "sparse_encoding_csc";
+    if (v == dnnl_sparse_encoding_bcsr) return "sparse_encoding_bcsr";
+    if (v == dnnl_sparse_encoding_bcsc) return "sparse_encoding_bcsc";
+    if (v == dnnl_sparse_encoding_packed) return "sparse_encoding_packed";
+    assert(!"unknown sparse_encoding");
+    return "unknown sparse_encoding";
 }
 
 const char *dnnl_rnn_flags2str(dnnl_rnn_flags_t v) {

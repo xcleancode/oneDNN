@@ -232,6 +232,32 @@ inline bool rnn_packed_desc_is_equal(
     return ok;
 }
 
+inline bool sparse_desc_is_equal(
+        const sparse_desc_t &lhs, const sparse_desc_t &rhs) {
+    bool ok = lhs.encoding == rhs.encoding && lhs.nnze == rhs.nnze
+            && lhs.structure_ndims == rhs.structure_ndims;
+    if (!ok) return false;
+
+    for (int i = 0; i < DNNL_MAX_NDIMS; i++)
+        ok = ok && lhs.dims_order[i] == rhs.dims_order[i];
+    if (!ok) return false;
+
+    for (int i = 0; i < DNNL_MAX_METADATA_TYPES; i++)
+        ok = ok && lhs.metadata_types[i] == rhs.metadata_types[i];
+    if (!ok) return false;
+
+    for (int i = 0; i < 2; i++)
+        ok = ok && lhs.entry_dims[i] == rhs.entry_dims[i];
+    if (!ok) return false;
+
+    if (lhs.structure_ndims != 0) {
+        for (int i = 0; i < 2; i++)
+            ok = ok && lhs.structure_dims[i] == rhs.structure_dims[i]
+                    && lhs.structure_nnz[i] == rhs.structure_nnz[i];
+    }
+    return ok;
+}
+
 inline memory_desc_t zero_md() {
     auto zero = memory_desc_t();
     return zero;
@@ -349,6 +375,10 @@ inline bool operator==(const memory_desc_t &lhs, const memory_desc_t &rhs) {
     else if (lhs.format_kind == format_kind::rnn_packed)
         return types::rnn_packed_desc_is_equal(lhs.format_desc.rnn_packed_desc,
                 rhs.format_desc.rnn_packed_desc);
+    else if (lhs.format_kind == format_kind::sparse)
+        return types::sparse_desc_is_equal(
+                lhs.format_desc.sparse_desc, rhs.format_desc.sparse_desc);
+
     return true;
 }
 

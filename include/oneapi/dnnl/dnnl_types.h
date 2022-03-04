@@ -97,6 +97,8 @@ typedef enum {
     dnnl_format_kind_wino,
     /// Packed weights format used in RNN
     dnnl_format_kind_rnn_packed,
+    /// Format for sparse data.
+    dnnl_format_sparse,
 } dnnl_format_kind_t;
 
 /// Memory format tag specification.
@@ -1787,6 +1789,46 @@ typedef struct {
     char reserved[200];
 } dnnl_rnn_packed_desc_t;
 
+/// Sparse encodings.
+typedef enum {
+    dnnl_sparse_encoding_undef = 0,
+    dnnl_sparse_encoding_any,
+    dnnl_sparse_encoding_csr,
+    dnnl_sparse_encoding_csc,
+    dnnl_sparse_encoding_bcsr,
+    dnnl_sparse_encoding_bcsc,
+} dnnl_sparse_encoding_t;
+
+/// Maximum number of types for metadata.
+#define DNNL_MAX_METADATA_TYPES 12
+
+typedef struct {
+    /// Specifies what encoding is used.
+    dnnl_sparse_encoding_t encoding;
+    /// Order of dimensions. E.g. for CSR it's [0, 1], for CSC [1, 0].
+    dnnl_dims_t dims_order;
+    /// Number of non-zero entries.
+    dnnl_dim_t nnze;
+    /// Metadata types. Each encoding defines how to interpret these.
+    dnnl_data_type_t metadata_types[DNNL_MAX_METADATA_TYPES];
+    /// Dimensions of an entry. For example: 1x1 for CSR/CSC or MxN for
+    /// BCSR/BCSC.
+    dnnl_dim_t entry_dims[2];
+
+    /// Section that describes sparsity pattern.
+    ///
+    /// Number of dimensions of a structure block. When ndims is 0 then sparsity
+    /// pattern is considered unstructured.
+    int structure_ndims;
+    /// Dimensions of a structure block.
+    dnnl_dim_t structure_dims[2];
+    /// Number of non-zero elements per-dimension.
+    dnnl_dim_t structure_nnz[2];
+    /// Reserved for possible future extensions (e.g. `opaque` or offsets
+    /// for submemory).
+    char reserved[64];
+} dnnl_sparse_desc_t;
+
 /// Flags for memory special features
 typedef enum {
     dnnl_memory_extra_flag_none = 0x0U,
@@ -1868,6 +1910,8 @@ typedef struct {
         dnnl_wino_desc_t wino_desc;
         /// Tensor of packed weights for RNN.
         dnnl_rnn_packed_desc_t rnn_packed_desc;
+        /// Description of how data encoded for different sparse encodings.
+        dnnl_sparse_desc_t sparse_desc;
         // ... other descriptions possible
     } format_desc;
 

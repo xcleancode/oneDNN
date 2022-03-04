@@ -199,6 +199,65 @@ status_t dnnl_memory_desc_init_by_strides(memory_desc_t *memory_desc, int ndims,
     return success;
 }
 
+status_t dnnl_sparse_desc_init(sparse_desc_t *sparse_desc,
+        sparse_encoding_t encoding, int ndims_order, const dims_t dims_order,
+        dim_t nnze, int ntypes, const data_type_t *metadata_types,
+        int nentry_dims, const dim_t *entry_dims, int structure_ndims,
+        const dim_t *structure_dims, const dim_t *structure_nnz) {
+    if (!sparse_desc) return invalid_arguments;
+    if (ntypes > 0 && !metadata_types) return invalid_arguments;
+    if (nentry_dims > 0 && !entry_dims) return invalid_arguments;
+    if (structure_ndims > 0 && (!structure_dims || !structure_nnz))
+        return invalid_arguments;
+
+    // sparse descriptor is empty.
+    if (nnze == 0) {
+        (*sparse_desc) = sparse_desc_t();
+        return success;
+    }
+
+    // TODO: add more checks
+
+    auto sd = sparse_desc_t();
+    sd.encoding = encoding;
+    array_copy(sd.dims_order, dims_order, ndims_order);
+    sd.nnze = nnze;
+    array_copy(sd.metadata_types, metadata_types, ntypes);
+    array_copy(sd.entry_dims, entry_dims, nentry_dims);
+    if (structure_ndims > 0) {
+        sd.structure_ndims = structure_ndims;
+        array_copy(sd.structure_dims, structure_dims, structure_ndims);
+        array_copy(sd.structure_nnz, structure_nnz, structure_ndims);
+    }
+
+    *sparse_desc = sd;
+
+    return success;
+}
+
+dnnl_status_t dnnl_memory_desc_init_by_sparse_desc(memory_desc_t *memory_desc,
+        int ndims, const dims_t dims, data_type_t data_type,
+        const sparse_desc_t *sparse_desc) {
+
+    if (any_null(memory_desc, sparse_desc)) return invalid_arguments;
+    if (ndims == 0) {
+        *memory_desc = types::zero_md();
+        return success;
+    }
+
+    auto md = memory_desc_t();
+    md.ndims = ndims;
+    array_copy(md.dims, dims, ndims);
+    md.data_type = data_type;
+    array_copy(md.padded_dims, dims, ndims);
+    md.format_kind = format_kind::sparse;
+    md.format_desc.sparse_desc = *sparse_desc;
+
+    *memory_desc = md;
+
+    return success;
+}
+
 status_t dnnl_memory_desc_init_submemory(memory_desc_t *md,
         const memory_desc_t *parent_md, const dims_t dims,
         const dims_t offsets) {
@@ -493,6 +552,11 @@ status_t dnnl_memory_desc_permute_axes(
 size_t dnnl_memory_desc_get_size(const memory_desc_t *md) {
     if (md == nullptr) return 0;
     return memory_desc_wrapper(*md).size();
+}
+
+size_t dnnl_memory_desc_get_size_sparse(
+        const dnnl_memory_desc_t *md, int index) {
+    return memory_desc_wrapper(*md).size(index);
 }
 
 size_t dnnl_data_type_size(dnnl_data_type_t data_type) {

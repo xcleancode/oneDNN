@@ -126,6 +126,15 @@ inline size_t get_array_hash<float>(size_t seed, const float *v, int size) {
     return seed;
 }
 
+template <>
+inline size_t get_array_hash<data_type_t>(
+        size_t seed, const data_type_t *v, int size) {
+    for (int i = 0; i < size; i++) {
+        seed = hash_combine(seed, static_cast<size_t>(v[i]));
+    }
+    return seed;
+}
+
 } // namespace primitive_hashing
 } // namespace impl
 } // namespace dnnl

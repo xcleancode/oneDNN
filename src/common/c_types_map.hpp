@@ -193,6 +193,7 @@ const format_kind_t any = dnnl_format_kind_any;
 const format_kind_t blocked = dnnl_blocked;
 const format_kind_t wino = dnnl_format_kind_wino;
 const format_kind_t rnn_packed = dnnl_format_kind_rnn_packed;
+const format_kind_t sparse = dnnl_format_sparse;
 } // namespace format_kind
 
 using format_tag_t = dnnl_format_tag_t;
@@ -1198,6 +1199,16 @@ const format_tag_t gOdhwI16i64o4i = dnnl_gOdhwI16i64o4i;
 const format_tag_t hwioG16g = dnnl_hwioG16g;
 } // namespace format_tag
 
+using sparse_encoding_t = dnnl_sparse_encoding_t;
+namespace sparse_encoding {
+const sparse_encoding_t undef = dnnl_sparse_encoding_undef;
+const sparse_encoding_t any = dnnl_sparse_encoding_any;
+const sparse_encoding_t csr = dnnl_sparse_encoding_csr;
+const sparse_encoding_t csc = dnnl_sparse_encoding_csc;
+const sparse_encoding_t bcsr = dnnl_sparse_encoding_bcsr;
+const sparse_encoding_t bcsc = dnnl_sparse_encoding_bcsc;
+} // namespace sparse_encoding
+
 using memory_extra_flags_t = dnnl_memory_extra_flags_t;
 namespace memory_extra_flags {
 const memory_extra_flags_t none = dnnl_memory_extra_flag_none;
@@ -1343,6 +1354,7 @@ using blocking_desc_t = dnnl_blocking_desc_t;
 using rnn_packed_desc_t = dnnl_rnn_packed_desc_t;
 using wino_desc_t = dnnl_wino_desc_t;
 using memory_extra_desc_t = dnnl_memory_extra_desc_t;
+using sparse_desc_t = dnnl_sparse_desc_t;
 using memory_desc_t = dnnl_memory_desc_t;
 using convolution_desc_t = dnnl_convolution_desc_t;
 using deconvolution_desc_t = dnnl_deconvolution_desc_t;
