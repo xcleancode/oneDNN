@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #===============================================================================
-# Copyright 2018-2021 Intel Corporation
+# Copyright 2018-2022 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,6 +111,9 @@ const char *dt2str(dnnl_data_type_t dt);
 /* format */
 const char *fmt_tag2str(dnnl_format_tag_t tag);
 
+/* encoding */
+const char *sparse_encoding2str(dnnl_sparse_encoding_t encoding);
+
 /* endinge kind */
 const char *engine_kind2str(dnnl_engine_kind_t kind);
 
@@ -144,6 +147,10 @@ const char *dt2str(dnnl_data_type_t dt) {
 
 const char *fmt_tag2str(dnnl_format_tag_t tag) {
     return dnnl_fmt_tag2str(tag);
+}
+
+const char *sparse_encoding2str(dnnl_sparse_encoding_t encoding) {
+    return dnnl_sparse_encoding2str(encoding);
 }
 
 const char *engine_kind2str(dnnl_engine_kind_t kind) {
@@ -267,7 +274,7 @@ def generate(ifile, banner_years):
                   for v_value in v_enum.findall('EnumValue')]
         h_body += func_to_str_decl(enum, is_header=True) + ';\n'
         s_body += func_to_str(enum, values) + '\n'
-        if enum in ['dnnl_format_tag_t', 'dnnl_data_type_t']:
+        if enum in ['dnnl_format_tag_t', 'dnnl_data_type_t', 'dnnl_sparse_encoding_t']:
             h_benchdnn_body += str_to_func_decl(
                 enum, is_header=True, is_dnnl=False) + ';\n'
             s_benchdnn_body += str_to_func(

@@ -1048,6 +1048,26 @@ dnnl_format_tag_t str2fmt_tag(const char *str) {
     return dnnl_format_tag_last;
 }
 
+dnnl_sparse_encoding_t str2sparse_encoding(const char *str) {
+#define CASE(_case) do { \
+    if (!strcmp(STRINGIFY(_case), str) \
+            || !strcmp("dnnl_" STRINGIFY(_case), str)) \
+        return CONCAT2(dnnl_, _case); \
+} while (0)
+    CASE(sparse_encoding_csr);
+    CASE(sparse_encoding_csc);
+    CASE(sparse_encoding_bcsr);
+    CASE(sparse_encoding_bcsc);
+    CASE(sparse_encoding_packed);
+#undef CASE
+    if (!strcmp("undef", str) || !strcmp("dnnl_sparse_encoding_undef", str))
+        return dnnl_sparse_encoding_undef;
+    if (!strcmp("any", str) || !strcmp("dnnl_sparse_encoding_any", str))
+        return dnnl_sparse_encoding_any;
+    assert(!"unknown sparse_encoding");
+    return dnnl_sparse_encoding_undef;
+}
+
 const char *status2str(dnnl_status_t status) {
     return dnnl_status2str(status);
 }
@@ -1058,6 +1078,10 @@ const char *dt2str(dnnl_data_type_t dt) {
 
 const char *fmt_tag2str(dnnl_format_tag_t tag) {
     return dnnl_fmt_tag2str(tag);
+}
+
+const char *sparse_encoding2str(dnnl_sparse_encoding_t encoding) {
+    return dnnl_sparse_encoding2str(encoding);
 }
 
 const char *engine_kind2str(dnnl_engine_kind_t kind) {
