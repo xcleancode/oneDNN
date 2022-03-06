@@ -1327,6 +1327,27 @@ dnnl_status_t DNNL_API dnnl_memory_create(dnnl_memory_t *memory,
         const dnnl_memory_desc_t *memory_desc, dnnl_engine_t engine,
         void *handle);
 
+/// Creates a sparse memory object.
+///
+/// @param memory Output memory object.
+/// @param memory_desc Memory descriptor.
+/// @param engine Engine to use.
+/// @param nhandles Number of handles.
+/// @param handles Handles of the memory buffers to use as underlying storages.
+///     For each element of the @p handles array the following applies:
+///     - A pointer to the user-allocated buffer. In this case the library
+///       doesn't own the buffer.
+///     - The DNNL_MEMORY_ALLOCATE special value. Instructs the library to
+///       allocate the buffer for the memory object. In this case the library
+///       owns the buffer.
+///     - DNNL_MEMORY_NONE Instructs the library to skip allocation of the
+///       memory buffer.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_memory_create_sparse(dnnl_memory_t *memory,
+        const dnnl_memory_desc_t *memory_desc, dnnl_engine_t engine,
+        dnnl_dim_t nhandles, void **handles);
+
 /// Returns the memory descriptor for a memory object.
 ///
 /// @param memory Memory object.
@@ -1388,6 +1409,13 @@ dnnl_status_t DNNL_API dnnl_memory_map_data(
 dnnl_status_t DNNL_API dnnl_memory_unmap_data(
         const_dnnl_memory_t memory, void *mapped_ptr);
 
+// TODO: add documentation and put these in the right place.
+dnnl_status_t DNNL_API dnnl_memory_map_data_sparse(
+        const_dnnl_memory_t memory, int index, void **mapped_ptr);
+
+dnnl_status_t DNNL_API dnnl_memory_unmap_data_sparse(
+        const_dnnl_memory_t memory, int index, void *mapped_ptr);
+
 /// Returns memory object's data handle.
 ///
 /// @param memory Memory object.
@@ -1409,6 +1437,13 @@ dnnl_status_t DNNL_API dnnl_memory_get_data_handle(
 ///     otherwise.
 dnnl_status_t DNNL_API dnnl_memory_set_data_handle(
         dnnl_memory_t memory, void *handle);
+
+// TODO: add documentation and put these in the right place.
+dnnl_status_t DNNL_API dnnl_memory_get_data_handles(
+        const_dnnl_memory_t memory, dnnl_dim_t *nhandles, void **handles);
+
+dnnl_status_t DNNL_API dnnl_memory_set_data_handles(
+        dnnl_memory_t memory, dnnl_dim_t nhandles, void **handles);
 
 /// Sets the underlying memory buffer.
 ///

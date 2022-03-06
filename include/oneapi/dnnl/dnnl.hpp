@@ -2823,12 +2823,43 @@ struct memory : public handle<dnnl_memory_t> {
 
     /// Constructs a memory object.
     ///
-    /// The underlying buffer for the memory will be allocated by the library.
+    /// The underlying buffer(s) for the memory will be allocated by the
+    /// library.
     ///
     /// @param md Memory descriptor.
     /// @param aengine Engine to store the data on.
-    memory(const desc &md, const engine &aengine)
-        : memory(md, aengine, DNNL_MEMORY_ALLOCATE) {}
+    memory(const desc &md, const engine &aengine) {
+        dnnl_status_t status;
+        dnnl_memory_t result;
+        const bool is_sparse_md = md.data.format_kind == dnnl_format_sparse;
+        if (is_sparse_md) {
+            // Deduce number of handles.
+            dim nhandles = 0;
+            switch (md.data.format_desc.sparse_desc.encoding) {
+                case dnnl_sparse_encoding_csr:
+                case dnnl_sparse_encoding_csc:
+                case dnnl_sparse_encoding_bcsr:
+                case dnnl_sparse_encoding_bcsc: nhandles = 3; break;
+                default: nhandles = 0;
+            }
+            std::vector<void *> handles(nhandles, DNNL_MEMORY_ALLOCATE);
+            status = dnnl_memory_create_sparse(&result, &md.data, aengine.get(),
+                    (dim)handles.size(), handles.data());
+        } else {
+            status = dnnl_memory_create(
+                    &result, &md.data, aengine.get(), DNNL_MEMORY_ALLOCATE);
+        }
+        error::wrap_c_api(status, "could not create a memory object");
+        reset(result);
+    }
+
+    memory(const desc &md, const engine &aengine, std::vector<void *> handles) {
+        dnnl_memory_t result;
+        dnnl_status_t status = dnnl_memory_create_sparse(&result, &md.data,
+                aengine.get(), (dim)handles.size(), handles.data());
+        error::wrap_c_api(status, "could not create a memory object");
+        reset(result);
+    }
 
     /// Returns the associated memory descriptor.
     desc get_desc() const {
@@ -2855,6 +2886,28 @@ struct memory : public handle<dnnl_memory_t> {
         error::wrap_c_api(dnnl_memory_get_data_handle(get(), &handle),
                 "could not get a native handle from a memory object");
         return handle;
+    }
+
+    // TODO: add documentation.
+    std::vector<void *> get_data_handles() const {
+        dim nhandles;
+        error::wrap_c_api(
+                dnnl_memory_get_data_handles(get(), &nhandles, nullptr),
+                "could not get a number of native handles from a memory "
+                "object");
+        std::vector<void *> handles(nhandles);
+        error::wrap_c_api(
+                dnnl_memory_get_data_handles(get(), &nhandles, handles.data()),
+                "could not get native handles from a memory object");
+        return handles;
+    }
+
+    // TODO: add documentation.
+    void set_data_handles(std::vector<void *> handles) {
+        dim nhandles = handles.size();
+        error::wrap_c_api(
+                dnnl_memory_set_data_handles(get(), nhandles, handles.data()),
+                "could not set native handles of a memory object");
     }
 
     /// Sets the underlying memory buffer.
@@ -2934,6 +2987,23 @@ struct memory : public handle<dnnl_memory_t> {
         error::wrap_c_api(dnnl_memory_map_data(get(), &mapped_ptr),
                 "could not map memory object data");
         return static_cast<T *>(mapped_ptr);
+    }
+
+    // TODO: add documentation.
+    template <typename T = void>
+    T *map_data(int index) const {
+        void *mapped_ptr;
+        error::wrap_c_api(
+                dnnl_memory_map_data_sparse(get(), index, &mapped_ptr),
+                "could not map memory object data");
+        return static_cast<T *>(mapped_ptr);
+    }
+
+    // TODO: add documentation.
+    void unmap_data(int index, void *mapped_ptr) const {
+        error::wrap_c_api(
+                dnnl_memory_unmap_data_sparse(get(), index, mapped_ptr),
+                "could not unmap memory object data");
     }
 
     /// Unmaps a memory object and writes back any changes made to the
