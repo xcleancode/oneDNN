@@ -132,4 +132,35 @@ TEST(sparse_memory_test, TestSparseMemory) {
     ASSERT_EQ(queried_handles[2], nullptr);
 }
 
+TEST(sparse_memory_test, TestNCtoCSRreorder) {
+    engine eng = get_test_engine();
+
+    const int nnz = 10;
+    auto md_nc = memory::desc({5, 10}, dt::f32, memory::format_tag::nc);
+    auto md_csr = memory::desc(
+            {5, 10}, dt::f32, memory::desc::csr(nnz, dt::s8, dt::s8));
+    memory nc_mem(md_nc, eng);
+    memory csr_mem(md_csr, eng);
+
+    float *dense_data = nc_mem.map_data<float>();
+    for (int i = 0; i < md_nc.dims()[0] * md_nc.dims()[1]; i++) {
+        dense_data[i] = 0;
+    }
+
+    int nnz_cnt = 0;
+    for (int i = 0; i < md_nc.dims()[0] * md_nc.dims()[1]; i++) {
+        if (nnz_cnt < nnz) {
+            if (i % 2 == 0) {
+                dense_data[i] = float(i + 1);
+                nnz_cnt++;
+            }
+        }
+    }
+
+    nc_mem.unmap_data(dense_data);
+
+    dnnl::stream stream(eng);
+    reorder(nc_mem, csr_mem).execute(stream, nc_mem, csr_mem);
+}
+
 } // namespace dnnl
