@@ -26,6 +26,7 @@ const impl_list_map_t &regular_f32_f32_impl_list_map() {
     static const impl_list_map_t the_map = REG_REORDER_P({
         // f32 -> f32
         {{f32, f32, 0}, {
+            REG_SPARSE_SR(f32, ab, f32, sparse_encoding::csr, sparse_inputs_order::keep, sparse_spec::reference)
             REG_FAST_DIRECT_COPY_F32_F32
 
             DNNL_X64_ONLY(CPU_REORDER_INSTANCE(x64::jit_blk_reorder_t))
