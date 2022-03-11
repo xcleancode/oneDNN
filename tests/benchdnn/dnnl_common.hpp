@@ -487,6 +487,10 @@ inline bool is_nvidia_eltwise_ok(
 int init_md(dnnl_memory_desc_t *md, int ndims, const dnnl_dims_t dims,
         dnnl_data_type_t data_type, const std::string &tag,
         const dims_t &strides_ = {});
+int init_md(dnnl_memory_desc_t *md, int ndims, const dnnl_dims_t dims,
+        dnnl_data_type_t data_type, dnnl_sparse_encoding_t encoding,
+        dnnl_dim_t nnz, dnnl_data_type_t index_type = dnnl_data_type_undef,
+        dnnl_data_type_t pointer_type = dnnl_data_type_undef);
 int check_mem_size(const dnnl_memory_desc_t &md);
 int check_mem_size(const_dnnl_primitive_desc_t const_pd);
 

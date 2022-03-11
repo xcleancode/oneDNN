@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2019-2021 Intel Corporation
+* Copyright 2019-2022 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -42,6 +42,10 @@ void check_correctness(const settings_t &s, const settings_t &def) {
     for_(const auto &i_stag : s.stag)
     for_(const auto &i_wtag : s.wtag)
     for_(const auto &i_dtag : s.dtag)
+    for_(const auto &i_wencoding : s.wencoding)
+    for_(const auto &i_wsparsity : s.wsparsity)
+    for_(const auto &i_sencoding : s.sencoding)
+    for_(const auto &i_ssparsity : s.ssparsity)
     for_(const auto &i_strides : s.strides)
     for_(const auto &i_rt_dims_masks : s.rt_dims_masks)
     for_(const auto &i_oscale : s.oscale)
@@ -79,7 +83,8 @@ void check_correctness(const settings_t &s, const settings_t &def) {
         }
 
         const prb_t prb(s.prb_vdims, i_cfg, i_stag, i_wtag, i_dtag, i_strides,
-                i_bia_cfg.first, i_bia_cfg.second, i_rt_dims_masks, attr);
+                i_bia_cfg.first, i_bia_cfg.second, i_rt_dims_masks, i_sencoding,
+                i_wencoding, i_ssparsity, i_wsparsity, attr);
         std::stringstream ss;
         ss << prb;
         const std::string cpp_pstr = ss.str();
@@ -123,6 +128,14 @@ int bench(int argc, char **argv) {
                 || parse_tag(s.stag, def.stag, argv[0], "stag")
                 || parse_tag(s.wtag, def.wtag, argv[0], "wtag")
                 || parse_tag(s.dtag, def.dtag, argv[0], "dtag")
+                || parse_encoding(
+                        s.sencoding, def.sencoding, argv[0], "sencoding")
+                || parse_sparsity(
+                        s.ssparsity, def.ssparsity, argv[0], "ssparsity")
+                || parse_encoding(
+                        s.wencoding, def.wencoding, argv[0], "wencoding")
+                || parse_sparsity(
+                        s.wsparsity, def.wsparsity, argv[0], "wsparsity")
                 || parse_strides(s.strides, def.strides, argv[0], "strides")
                 || parse_dt(s.bia_dt, def.bia_dt, argv[0], "bia_dt")
                 || parse_vector_option(s.bia_mask, def.bia_mask, atoi, argv[0],

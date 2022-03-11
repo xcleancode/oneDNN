@@ -108,8 +108,9 @@ struct simple_sparse_reorder_impl<SIMPLE_SPARSE_REORDER_TEMPL_CALL,
         auto input = CTX_IN_MEM(const data_t<type_i> *, DNNL_ARG_FROM);
         auto output_values
                 = CTX_OUT_SPARSE_MEM(data_t<type_o> *, DNNL_ARG_TO, 0);
-        auto output_indices = CTX_OUT_SPARSE_MEM(data_t<s8> *, DNNL_ARG_TO, 1);
-        auto output_pointers = CTX_OUT_SPARSE_MEM(data_t<s8> *, DNNL_ARG_TO, 2);
+        auto output_indices = CTX_OUT_SPARSE_MEM(data_t<s32> *, DNNL_ARG_TO, 1);
+        auto output_pointers
+                = CTX_OUT_SPARSE_MEM(data_t<s32> *, DNNL_ARG_TO, 2);
 
         const auto input_d = ctx.memory_mdw(DNNL_ARG_FROM, pd()->src_md());
 
@@ -119,7 +120,7 @@ struct simple_sparse_reorder_impl<SIMPLE_SPARSE_REORDER_TEMPL_CALL,
 
         size_t nnz_cnt = 0;
         output_pointers[0] = 0;
-        int8_t *op_ptr = &output_pointers[0];
+        int32_t *op_ptr = &output_pointers[0];
 
         for (size_t i = 0; i < M; i++) {
             size_t nnz_per_row = 0;
@@ -132,7 +133,7 @@ struct simple_sparse_reorder_impl<SIMPLE_SPARSE_REORDER_TEMPL_CALL,
                     nnz_per_row++;
                 }
             }
-            const int8_t curr_ptr = *op_ptr;
+            const int32_t curr_ptr = *op_ptr;
             op_ptr++;
             *op_ptr = curr_ptr + nnz_per_row;
         }

@@ -61,13 +61,41 @@ static int init_pd(dnnl_engine_t engine, const prb_t *prb,
     const auto &dst_rt_dims
             = get_runtime_dims(prb->dst_dims, prb->dst_runtime_dim_mask());
 
-    SAFE(init_md(&src_d, prb->ndims, src_rt_dims.data(), prb->cfg[SRC].dt,
-                 prb->stag, prb->strides[STRIDES_SRC]),
-            CRIT);
+    if (prb->sencoding != dnnl_sparse_encoding_undef) {
+        if (prb->sencoding == dnnl_sparse_encoding_csr) {
+            const dnnl_dim_t nnz
+                    = std::max(prb->m * prb->k * (1.0f - prb->ssparsity), 1.0f);
+            SAFE(init_md(&src_d, prb->ndims, src_rt_dims.data(),
+                         prb->cfg[SRC].dt, prb->sencoding, nnz, dnnl_s32,
+                         dnnl_s32),
+                    CRIT);
+        } else {
+            assert(!"unsupported encoding");
+            return FAIL;
+        }
+    } else {
+        SAFE(init_md(&src_d, prb->ndims, src_rt_dims.data(), prb->cfg[SRC].dt,
+                     prb->stag, prb->strides[STRIDES_SRC]),
+                CRIT);
+    }
 
-    SAFE(init_md(&wei_d, prb->ndims, weights_rt_dims.data(), prb->cfg[WEI].dt,
-                 prb->wtag, prb->strides[STRIDES_WEI]),
-            CRIT);
+    if (prb->wencoding != dnnl_sparse_encoding_undef) {
+        if (prb->wencoding == dnnl_sparse_encoding_csr) {
+            const dnnl_dim_t nnz
+                    = std::max(prb->k * prb->n * (1.0f - prb->wsparsity), 1.0f);
+            SAFE(init_md(&wei_d, prb->ndims, weights_rt_dims.data(),
+                         prb->cfg[WEI].dt, prb->wencoding, nnz, dnnl_s32,
+                         dnnl_s32),
+                    CRIT);
+        } else {
+            assert(!"unsupported encoding");
+            return FAIL;
+        }
+    } else {
+        SAFE(init_md(&wei_d, prb->ndims, weights_rt_dims.data(),
+                     prb->cfg[WEI].dt, prb->wtag, prb->strides[STRIDES_WEI]),
+                CRIT);
+    }
 
     SAFE(init_md(&dst_d, prb->ndims, dst_rt_dims.data(), prb->cfg[DST].dt,
                  prb->dtag, prb->strides[STRIDES_DST]),
@@ -140,6 +168,7 @@ int init_prim_ref(
     update_cpu_ref_attrs(cpu_attr);
     prb_t prb_cpu {*prb, conf_f32, tag::abx, tag::abx, tag::abx,
             {vdims_t(STRIDES_SIZE)}, cpu_bia_dt, cpu_bia_mask, {0, 0, 0},
+            dnnl_sparse_encoding_undef, dnnl_sparse_encoding_undef, 1.0f, 1.0f,
             cpu_attr};
 
     dnnl_primitive_desc_t pd_ref_ {};
@@ -156,6 +185,26 @@ int init_prim_ref(
     }
     prim_ref.reset(prim_ref_);
     return OK;
+}
+
+void adjust_data(int64_t nelements, dnn_mem_t &mem_fp, dnnl_dim_t expected_nnz,
+        dnnl_dim_t real_nnz) {
+    const bool is_nnz_missing = (real_nnz < expected_nnz);
+
+    for (int64_t idx = 0; idx < nelements; idx++) {
+        float &value = ((float *)mem_fp)[idx];
+        if (is_nnz_missing) {
+            if (value == 0.0f) {
+                value = 1.0f;
+                if (++real_nnz == expected_nnz) return;
+            }
+        } else {
+            if (value != 0.0f) {
+                value = 0.0f;
+                if (--real_nnz == expected_nnz) return;
+            }
+        }
+    }
 }
 
 int fill_data(data_kind_t kind, const prb_t *prb, dnn_mem_t &mem_dt,
@@ -217,6 +266,27 @@ int fill_data(data_kind_t kind, const prb_t *prb, dnn_mem_t &mem_dt,
     // work-around mistrusted when A > 0 && B < 0  && C.dt = u8 (or relu)
     if (kind == WEI && nelems == 1 && prb->cfg[DST].dt == dnnl_u8) {
         if (c.f_max >= 1) mem_fp.set_elem(0, c_f_scale);
+    }
+
+    const bool is_src_sparse = prb->sencoding != dnnl_sparse_encoding_undef;
+    const bool is_wei_sparse = prb->wencoding != dnnl_sparse_encoding_undef;
+
+    if ((kind == SRC && is_src_sparse) || (kind == WEI && is_wei_sparse)) {
+        const int64_t nelements
+                = kind == WEI ? prb->k * prb->n : prb->m * prb->k;
+        const float sparsity
+                = 1.0f - (kind == WEI ? prb->wsparsity : prb->ssparsity);
+        const dnnl_dim_t expected_nnz = std::max(nelements * sparsity, 1.0f);
+
+        // Get the number of generated non-zero elements.
+
+        std::atomic<dnnl_dim_t> real_nnz {0};
+        dnnl::impl::parallel_nd(nelements, [&](int64_t idx) {
+            if (((float *)mem_fp)[idx] != 0.0f) {
+                real_nnz.fetch_add(1, std::memory_order::memory_order_relaxed);
+            }
+        });
+        adjust_data(nelements, mem_fp, expected_nnz, real_nnz);
     }
 
     SAFE(mem_dt.reorder(mem_fp), WARN);
@@ -449,9 +519,35 @@ int doit(const prb_t *prb, res_t *res) {
     dnn_mem_t scratchpad_dt(scratchpad_md, test_engine);
 
     const auto fp = dnnl_f32;
-    dnn_mem_t src_fp(src_md, fp, tag::abx, ref_engine);
-    dnn_mem_t wei_fp(wei_md, fp, tag::abx, ref_engine);
+
+    const bool is_src_sparse = prb->sencoding != dnnl_sparse_encoding_undef;
+    dnn_mem_t src_fp;
+    if (is_src_sparse) {
+        dnnl_memory_desc_t src_fp_d;
+        std::vector<std::string> tags = {"undef", "a", "ab"};
+        SAFE(init_md(&src_fp_d, src_md.ndims, src_md.dims, src_md.data_type,
+                     tags[src_md.ndims]),
+                CRIT);
+        src_fp = dnn_mem_t(src_fp_d, fp, tag::abx, ref_engine);
+    } else {
+        src_fp = dnn_mem_t(src_md, fp, tag::abx, ref_engine);
+    }
+
+    const bool is_wei_sparse = prb->wencoding != dnnl_sparse_encoding_undef;
+    dnn_mem_t wei_fp;
+    if (is_wei_sparse) {
+        dnnl_memory_desc_t wei_fp_d;
+        std::vector<std::string> tags = {"undef", "a", "ab"};
+        SAFE(init_md(&wei_fp_d, wei_md.ndims, wei_md.dims, wei_md.data_type,
+                     tags[wei_md.ndims]),
+                CRIT);
+        wei_fp = dnn_mem_t(wei_fp_d, fp, tag::abx, ref_engine);
+    } else {
+        wei_fp = dnn_mem_t(wei_md, fp, tag::abx, ref_engine);
+    }
+
     dnn_mem_t dst_fp(dst_md, fp, tag::abx, ref_engine);
+
     dnn_mem_t bia_fp;
     if (prb->bia_dt != dnnl_data_type_undef)
         bia_fp = dnn_mem_t(bia_md, fp, tag::abx, ref_engine);

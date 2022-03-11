@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2019-2021 Intel Corporation
+* Copyright 2019-2022 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -169,6 +169,14 @@ bool parse_multi_dt(std::vector<std::vector<dnnl_data_type_t>> &dt,
 bool parse_tag(std::vector<std::string> &tag,
         const std::vector<std::string> &def_tag, const char *str,
         const std::string &option_name = "tag");
+
+bool parse_encoding(std::vector<dnnl_sparse_encoding_t> &encoding,
+        const std::vector<dnnl_sparse_encoding_t> &def_encoding,
+        const char *str, const std::string &option_name = "encoding");
+
+bool parse_sparsity(std::vector<float> &sparsity,
+        const std::vector<float> &def_sparsity, const char *str,
+        const std::string &option_name = "sparsity");
 
 bool parse_multi_tag(std::vector<std::vector<std::string>> &tag,
         const std::vector<std::vector<std::string>> &def_tag, const char *str,

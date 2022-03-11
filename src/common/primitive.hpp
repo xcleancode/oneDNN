@@ -257,6 +257,8 @@ status_t primitive_execute(
 
 #define CTX_IN_MEM(type, arg) \
     static_cast<const ARG_TYPE(type) *>(ctx.host_ptr(arg))
+#define CTX_IN_SPARSE_MEM(type, arg, idx) \
+    static_cast<const ARG_TYPE(type) *>(ctx.host_ptr(arg, idx))
 
 // Returns destination memory which may not have been zero pad initialized.
 #define CTX_OUT_MEM(type, arg) static_cast<ARG_TYPE(type) *>(ctx.host_ptr(arg))

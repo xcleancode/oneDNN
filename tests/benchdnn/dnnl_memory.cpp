@@ -249,6 +249,23 @@ int dnn_mem_t::initialize_memory_create(const handle_info_t &handle_info) {
         SAFE(initialize_memory_create_sycl(handle_info), CRIT);
     } else if (is_opencl) {
         SAFE(initialize_memory_create_opencl(handle_info), CRIT);
+    } else if (is_sparse) {
+        // TODO: generalize using `handle_info`.
+        if (md_.format_desc.sparse_desc.encoding != dnnl_sparse_encoding_csr
+                && md_.format_desc.sparse_desc.encoding
+                        != dnnl_sparse_encoding_packed)
+            return FAIL;
+        is_data_owner_ = false;
+        data_ = nullptr;
+        // CSR needs 3 handles.
+        const int nhandles = md_.format_desc.sparse_desc.encoding
+                        == dnnl_sparse_encoding_csr
+                ? 3
+                : 1;
+        std::vector<void *> handles(nhandles, DNNL_MEMORY_ALLOCATE);
+        DNN_SAFE(dnnl_memory_create_sparse(
+                         &m_, &md_, engine_, handles.size(), handles.data()),
+                CRIT);
     } else {
         is_data_owner_ = false;
         data_ = nullptr;

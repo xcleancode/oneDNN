@@ -744,6 +744,42 @@ int init_md(dnnl_memory_desc_t *md, int ndims, const dnnl_dims_t dims,
     return OK;
 }
 
+int init_md(dnnl_memory_desc_t *md, int ndims, const dnnl_dims_t dims,
+        dnnl_data_type_t data_type, dnnl_sparse_encoding_t encoding,
+        dnnl_dim_t nnz, dnnl_data_type_t index_type,
+        dnnl_data_type_t pointer_type) {
+    // This is the only encoding that is supported at this point.
+    if (encoding != dnnl_sparse_encoding_packed
+            && encoding != dnnl_sparse_encoding_csr)
+        return FAIL;
+    // This is the only number of dims that is supported.
+    if (ndims != 2) return FAIL;
+
+    auto sd = dnnl_sparse_desc_t();
+
+    switch (encoding) {
+        case dnnl_sparse_encoding_packed:
+            DNN_SAFE(dnnl_sparse_desc_init(&sd, encoding, 0, nullptr, nnz, 0,
+                             nullptr, 0, nullptr, 0, nullptr, nullptr),
+                    CRIT);
+            break;
+        case dnnl_sparse_encoding_csr: {
+            const dnnl_data_type_t metadata[2] = {index_type, pointer_type};
+            DNN_SAFE(dnnl_sparse_desc_init(&sd, encoding, 0, nullptr, nnz, 2,
+                             metadata, 0, nullptr, 0, nullptr, nullptr),
+                    CRIT);
+            break;
+        }
+        default: assert(!"unimplemented"); return FAIL;
+    }
+
+    DNN_SAFE(dnnl_memory_desc_init_by_sparse_desc(
+                     md, ndims, dims, data_type, &sd),
+            CRIT);
+
+    return OK;
+}
+
 #if defined(_WIN32) && !defined(__GNUC__)
 #include "windows.h"
 
