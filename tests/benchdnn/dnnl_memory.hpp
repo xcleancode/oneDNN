@@ -169,6 +169,11 @@ struct dnn_mem_t {
             dnnl_data_type_t data_type, const std::string &tag,
             const dims_t &strides_ = {});
 
+    static dnnl_memory_desc_t init_md(int ndims, const dnnl_dims_t dims,
+            dnnl_data_type_t data_type, dnnl_sparse_encoding_t encoding,
+            dnnl_dim_t nnz, dnnl_data_type_t index_type,
+            dnnl_data_type_t pointer_type);
+
     /* fields */
     dnnl_memory_desc_t md_ {};
     dnnl_memory_t m_ {};

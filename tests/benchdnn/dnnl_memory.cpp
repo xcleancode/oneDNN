@@ -364,6 +364,40 @@ dnnl_memory_desc_t dnn_mem_t::init_md(int ndims, const dnnl_dims_t dims,
     return md;
 }
 
+dnnl_memory_desc_t dnn_mem_t::init_md(int ndims, const dnnl_dims_t dims,
+        dnnl_data_type_t data_type, dnnl_sparse_encoding_t encoding,
+        dnnl_dim_t nnz, dnnl_data_type_t index_type,
+        dnnl_data_type_t pointer_type) {
+    // This is the only encoding that is supported at this point.
+    if (encoding != dnnl_sparse_encoding_packed
+            && encoding != dnnl_sparse_encoding_csr)
+        return {};
+    // This is the only number of dims that is supported.
+    if (ndims != 2) return {};
+
+    dnnl_memory_desc_t md {};
+    auto sd = dnnl_sparse_desc_t();
+
+    switch (encoding) {
+        case dnnl_sparse_encoding_packed:
+            DNN_SAFE_V(dnnl_sparse_desc_init(&sd, encoding, 0, nullptr, nnz, 0,
+                    nullptr, 0, nullptr, 0, nullptr, nullptr));
+            break;
+        case dnnl_sparse_encoding_csr: {
+            const dnnl_data_type_t metadata[2] = {index_type, pointer_type};
+            DNN_SAFE_V(dnnl_sparse_desc_init(&sd, encoding, 0, nullptr, nnz, 2,
+                    metadata, 0, nullptr, 0, nullptr, nullptr));
+            break;
+        }
+        default: assert(!"unimplemented"); return {};
+    }
+
+    DNN_SAFE_V(dnnl_memory_desc_init_by_sparse_desc(
+            &md, ndims, dims, data_type, &sd));
+
+    return md;
+}
+
 int dnn_mem_t::initialize_memory_create_sycl(const handle_info_t &handle_info) {
 #ifdef DNNL_WITH_SYCL
     if (handle_info.is_host_ptr) {
@@ -472,6 +506,7 @@ int dnn_mem_t::initialize_memory_create_opencl(
 int dnn_mem_t::initialize_memory_create(const handle_info_t &handle_info) {
     bool is_sycl = is_sycl_engine(engine_);
     bool is_opencl = is_opencl_engine(engine_);
+    bool is_sparse = md_.format_kind == dnnl_format_sparse;
 
     if (handle_info.is_host_ptr) {
         // Host pointer can be used with CPU memory only.
@@ -491,6 +526,23 @@ int dnn_mem_t::initialize_memory_create(const handle_info_t &handle_info) {
         SAFE(initialize_memory_create_sycl(handle_info), CRIT);
     } else if (is_opencl) {
         SAFE(initialize_memory_create_opencl(handle_info), CRIT);
+    } else if (is_sparse) {
+        // TODO: generalize using `handle_info`.
+        if (md_.format_desc.sparse_desc.encoding != dnnl_sparse_encoding_csr
+                && md_.format_desc.sparse_desc.encoding
+                        != dnnl_sparse_encoding_packed)
+            return FAIL;
+        is_data_owner_ = false;
+        data_ = nullptr;
+        // CSR needs 3 handles.
+        const int nhandles = md_.format_desc.sparse_desc.encoding
+                        == dnnl_sparse_encoding_csr
+                ? 3
+                : 1;
+        std::vector<void *> handles(nhandles, DNNL_MEMORY_ALLOCATE);
+        DNN_SAFE(dnnl_memory_create_sparse(
+                         &m_, &md_, engine_, handles.size(), handles.data()),
+                CRIT);
     } else {
         is_data_owner_ = false;
         data_ = nullptr;

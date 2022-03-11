@@ -1797,6 +1797,7 @@ typedef enum {
     dnnl_sparse_encoding_csc,
     dnnl_sparse_encoding_bcsr,
     dnnl_sparse_encoding_bcsc,
+    dnnl_sparse_encoding_packed,
 } dnnl_sparse_encoding_t;
 
 /// Maximum number of types for metadata.

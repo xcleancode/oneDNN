@@ -51,6 +51,9 @@ struct settings_t : public base_settings_t {
     std::vector<std::string> cfg {std::string()};
     std::vector<std::vector<dnnl_data_type_t>> dt {{dnnl_f32}};
     std::vector<std::string> stag {tag::any}, wtag {tag::any}, dtag {tag::any};
+    std::vector<dnnl_sparse_encoding_t> sencoding {dnnl_sparse_encoding_undef},
+            wencoding {dnnl_sparse_encoding_undef};
+    std::vector<float> ssparsity {0.5f}, wsparsity {0.5f};
     std::vector<vdims_t> strides {vdims_t(STRIDES_SIZE)};
     std::vector<dnnl_data_type_t> bia_dt {dnnl_data_type_undef};
     std::vector<int> bia_mask {2};
@@ -69,7 +72,9 @@ struct prb_t : public prb_vdims_t {
             const std::string &stag, const std::string &wtag,
             const std::string &dtag, const vdims_t &strides,
             dnnl_data_type_t bia_dt, int bia_mask,
-            const std::vector<dims_mask_t> &rt_dims_masks, const attr_t &attr)
+            const std::vector<dims_mask_t> &rt_dims_masks,
+            dnnl_sparse_encoding_t sencoding, dnnl_sparse_encoding_t wencoding,
+            float ssparsity, float wsparsity, const attr_t &attr)
         : prb_vdims_t(prb_vdims)
         , dt(dt)
         , stag(stag)
@@ -79,6 +84,10 @@ struct prb_t : public prb_vdims_t {
         , bia_dt(bia_dt)
         , bia_mask(bia_mask)
         , rt_dims_masks(rt_dims_masks)
+        , sencoding(sencoding)
+        , wencoding(wencoding)
+        , ssparsity(ssparsity)
+        , wsparsity(wsparsity)
         , attr(attr)
         , scales(NULL) {
 
@@ -122,6 +131,8 @@ struct prb_t : public prb_vdims_t {
     dnnl_data_type_t bia_dt;
     int bia_mask;
     std::vector<dims_mask_t> rt_dims_masks;
+    dnnl_sparse_encoding_t sencoding, wencoding;
+    float ssparsity, wsparsity;
 
     attr_t attr;
 

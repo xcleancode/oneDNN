@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2019-2021 Intel Corporation
+* Copyright 2019-2022 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -223,8 +223,29 @@ inline void read_from_dnnl_memory(void *handle, dnnl::memory &mem) {
     assert(!"not expected");
 }
 
+inline void write_to_dnnl_memory(
+        const std::vector<void *> &handles, dnnl::memory &mem) {
+    dnnl::engine eng = mem.get_engine();
+    auto mem_handles = mem.get_data_handles();
+    assert(mem_handles.size() == 3);
+    if (eng.get_kind() == dnnl::engine::kind::cpu) {
+        for (size_t index = 0; index < handles.size(); index++) {
+            const size_t size = mem.get_desc().get_size(index);
+            uint8_t *dst = static_cast<uint8_t *>(mem_handles[index]);
+            if (!dst)
+                throw std::runtime_error("get_data_handle returned nullptr.");
+            void *h = handles[index];
+            for (size_t i = 0; i < size; ++i)
+                dst[i] = ((uint8_t *)h)[i];
+        }
+        return;
+    }
+
+    assert(!"not expected");
+}
+
 // Read from handle, write to memory
-inline void write_to_dnnl_memory(void *handle, dnnl::memory &mem) {
+inline void write_to_dnnl_memory(const void *handle, dnnl::memory &mem) {
     dnnl::engine eng = mem.get_engine();
     size_t size = mem.get_desc().get_size();
 

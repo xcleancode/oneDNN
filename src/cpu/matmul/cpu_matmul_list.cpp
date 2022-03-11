@@ -23,6 +23,8 @@
 #include "cpu/matmul/ref_matmul.hpp"
 #include "cpu/matmul/ref_matmul_int8.hpp"
 
+#include "cpu/matmul/sparse/ref_matmul.hpp"
+
 #if DNNL_X64
 #include "cpu/x64/matmul/brgemm_matmul.hpp"
 using namespace dnnl::impl::cpu::x64::matmul;
@@ -44,6 +46,7 @@ using namespace dnnl::impl::cpu::matmul;
 
 // clang-format off
 constexpr impl_list_item_t impl_list[] = REG_MATMUL_P({
+        CPU_INSTANCE(ref_sparse_matmul_t)
         CPU_INSTANCE_AARCH64_ACL(acl_matmul_t)
         CPU_INSTANCE_AMX(brgemm_matmul_t<avx512_core_bf16_amx_bf16>)
         CPU_INSTANCE_AVX512(brgemm_matmul_t<avx512_core>)
