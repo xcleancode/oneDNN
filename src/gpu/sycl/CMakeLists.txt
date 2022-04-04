@@ -1,5 +1,5 @@
 #===============================================================================
-# Copyright 2020-2022 Intel Corporation
+# Copyright 2022 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,32 +14,14 @@
 # limitations under the License.
 #===============================================================================
 
-file(GLOB SOURCES
+file(GLOB_RECURSE SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
     )
 
-add_definitions_with_host_compiler(-DNGEN_CPP11)
-add_definitions_with_host_compiler(-DNGEN_SAFE)
-add_definitions_with_host_compiler(-DNGEN_NEO_INTERFACE)
-add_definitions_with_host_compiler(-DNGEN_NO_OP_NAMES)
-add_definitions_with_host_compiler(-DNGEN_WINDOWS_COMPAT)
-
-set(OBJ_LIB ${DNNL_LIBRARY_NAME}_gpu)
+set(OBJ_LIB ${DNNL_LIBRARY_NAME}_gpu_sycl)
 add_library(${OBJ_LIB} OBJECT ${SOURCES})
 set_property(GLOBAL APPEND PROPERTY DNNL_LIB_DEPS
     $<TARGET_OBJECTS:${OBJ_LIB}>)
-
-add_subdirectory(compute)
-add_subdirectory(jit)
-add_subdirectory(ocl)
-
-if(DNNL_WITH_SYCL)
-    add_subdirectory(sycl)
-endif()
-
-if(DNNL_SYCL_CUDA)
-    add_subdirectory(nvidia)
-    # Pass ${DNNL_LIBRARY_NAME}_INTERFACE to upper level for proper linking
-    set(${DNNL_LIBRARY_NAME}_INTERFACE "${${DNNL_LIBRARY_NAME}_INTERFACE}" PARENT_SCOPE)
-endif()
