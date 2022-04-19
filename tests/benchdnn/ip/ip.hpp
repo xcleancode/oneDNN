@@ -61,6 +61,8 @@ struct settings_t {
     std::vector<dir_t> dir {FWD_B};
     std::vector<const dt_conf_t *> cfg {conf_f32};
     std::vector<std::string> stag {tag::any}, wtag {tag::any}, dtag {tag::any};
+    std::vector<dnnl_sparse_encoding_t> wencoding {dnnl_sparse_encoding_undef};
+    std::vector<float> wsparsity {0.5f};
     std::vector<int64_t> mb {0};
     std::vector<attr_t::scale_t> oscale {attr_t::scale_t()};
     std::vector<attr_t::post_ops_t> post_ops {attr_t::post_ops_t()};
@@ -82,13 +84,16 @@ struct settings_t {
 struct prb_t : public desc_t {
     prb_t(const desc_t &desc, int64_t mb, dir_t dir, const dt_conf_t *cfg,
             const std::string &stag, const std::string &wtag,
-            const std::string &dtag, const attr_t &attr)
+            const std::string &dtag, dnnl_sparse_encoding_t wencoding,
+            float wsparsity, const attr_t &attr)
         : desc_t(desc)
         , dir(dir)
         , cfg(cfg)
         , stag(stag)
         , wtag(wtag)
         , dtag(dtag)
+        , wencoding(wencoding)
+        , wsparsity(wsparsity)
         , attr(attr)
         , user_mb(mb)
         , ops(0)
@@ -104,6 +109,8 @@ struct prb_t : public desc_t {
     dir_t dir;
     const dt_conf_t *cfg;
     std::string stag, wtag, dtag;
+    dnnl_sparse_encoding_t wencoding;
+    float wsparsity;
     attr_t attr;
     int64_t user_mb;
 

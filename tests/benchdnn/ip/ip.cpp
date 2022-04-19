@@ -63,8 +63,18 @@ static int init_pd(dnnl_engine_t engine, const prb_t *prb,
 
     SAFE(init_md(&src_d, prb->ndims, src_dims, prb->cfg[SRC].dt, prb->stag),
             CRIT);
-    SAFE(init_md(&wei_d, prb->ndims, wei_dims, prb->cfg[WEI].dt, prb->wtag),
-            CRIT);
+
+    if (prb->wencoding != dnnl_sparse_encoding_undef) {
+        const dnnl_dim_t nnz = (prb->oc * prb->ic * prb->id * prb->ih * prb->iw)
+                * (1.0f - prb->wsparsity);
+        SAFE(init_md(&wei_d, prb->ndims, wei_dims, prb->cfg[WEI].dt,
+                     prb->wencoding, nnz),
+                CRIT);
+    } else {
+        SAFE(init_md(&wei_d, prb->ndims, wei_dims, prb->cfg[WEI].dt, prb->wtag),
+                CRIT);
+    }
+
     DNN_SAFE(dnnl_memory_desc_init_by_tag(&bia_d, 1, bia_dims, prb->cfg[BIA].dt,
                      dnnl_format_tag_any),
             WARN);
@@ -141,7 +151,7 @@ int init_prim_ref(
     auto cpu_attr = prb->attr;
     update_cpu_ref_attrs(cpu_attr);
     prb_t prb_cpu {*prb, prb->mb, prb->dir, conf_f32, tag::abx, tag::abx,
-            tag::abx, cpu_attr};
+            tag::abx, dnnl_sparse_encoding_undef, 1.0f, cpu_attr};
 
     dnnl_primitive_desc_t pd_ref_ {};
     SAFE(init_pd(get_cpu_engine(), &prb_cpu, pd_ref_, nullptr, prb->dir,
@@ -197,27 +207,83 @@ int fill_src(
     return OK;
 }
 
+void adjust_weights(const prb_t *prb, dnn_mem_t &mem_fp,
+        dnnl_dim_t expected_nnz, dnnl_dim_t real_nnz) {
+    const bool is_nnz_missing = (real_nnz < expected_nnz);
+
+    for_(int64_t oc = 0; oc < prb->oc; oc++)
+    for_(int64_t ic = 0; ic < prb->ic; ic++)
+    for_(int64_t kd = 0; kd < prb->id; kd++)
+    for_(int64_t kh = 0; kh < prb->ih; kh++)
+    for_(int64_t kw = 0; kw < prb->iw; kw++)
+    {
+        float &value = ((float *)mem_fp)[wei_off_f(prb, oc, ic, kd, kh, kw)];
+
+        if (is_nnz_missing) {
+            if (value == 0.0f) {
+                value = 1.0f;
+                if (++real_nnz == expected_nnz) return;
+            }
+        } else {
+            if (value != 0.0f) {
+                value = 0.0f;
+                if (--real_nnz == expected_nnz) return;
+            }
+        }
+    }
+}
+
 int fill_wei(
         const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp, res_t *res) {
     const bool s8_s8
             = prb->cfg[WEI].dt == dnnl_s8 && prb->cfg[SRC].dt == dnnl_s8;
+    const bool is_sparse = prb->wencoding != dnnl_sparse_encoding_undef;
 
     const auto &c = prb->cfg[WEI];
     const int range = c.f_max - c.f_min + 1;
+
+    // XXX: What's called `c.f_sparsity` should have actually been called
+    // `density` as it represents the number of non-zero elements.
+    // For example, in general, sparsity = 0.9 means that 90% of elements are
+    // zeros, however, benchdnn interprets it as 90% of the elements should be
+    // non-zero, which is actually density.
+    const float f_sparsity = prb->wencoding == dnnl_sparse_encoding_undef
+            ? c.f_sparsity
+            : (1.0f - prb->wsparsity);
+
+    const dnnl_dim_t expected_nnz
+            = (prb->oc * prb->ic * prb->id * prb->ih * prb->iw) * f_sparsity;
 
     dnnl::impl::parallel_nd(prb->oc, prb->ic, prb->id, prb->ih, prb->iw,
             [&](int64_t oc, int64_t ic, int64_t kd, int64_t kh, int64_t kw) {
                 const int gen = 127 * kd + 131 * kh + 137 * kw + 139 * oc
                         + 149 * ic + 7;
-                const float sparsity = prb->ic < 5 ? 1.f : c.f_sparsity;
+                const float sparsity = prb->ic < 5 ? 1.f : f_sparsity;
                 const bool non_base = flip_coin(gen, sparsity);
-                const float value
-                        = non_base ? c.f_min + gen * 1 % range : c.f_base;
+                const float value = non_base
+                        ? std::max(c.f_min + gen * 1 % range, 1.0)
+                        : c.f_base;
                 ((float *)mem_fp)[wei_off_f(prb, oc, ic, kd, kh, kw)] = value;
             });
 
+    // Get the number of generated non-zero elements.
+    std::atomic<dnnl_dim_t> real_nnz {0};
+    dnnl::impl::parallel_nd(prb->oc, prb->ic, prb->id, prb->ih, prb->iw,
+            [&](int64_t oc, int64_t ic, int64_t kd, int64_t kh, int64_t kw) {
+                if (((float *)mem_fp)[wei_off_f(prb, oc, ic, kd, kh, kw)]
+                        != 0.0f) {
+                    real_nnz++;
+                }
+            });
+
+    // XXX: Adjust the weights if the number of generated non-zero elements is
+    // less or greater than the expected number of non-zero elements.
+    // TODO: Implement less ugly deterministic way to generate sparse tensors
+    // with with the given nnz.
+    adjust_weights(prb, mem_fp, expected_nnz, real_nnz);
+
     SAFE(mem_dt.reorder(mem_fp), WARN);
-    if (s8_s8 && is_cpu()) {
+    if (s8_s8 && is_cpu() && !is_sparse) {
         // Check that s8 -> s8_comp exists in the library since users may have
         // already quantized data.
         dnn_mem_t mem_fp_s8(mem_fp.md_, dnnl_s8, get_cpu_engine());
@@ -358,8 +424,23 @@ int doit(const prb_t *prb, res_t *res) {
                  const_pd, binary_po_args, binary_po_dt, binary_po_fp),
             WARN);
 
+    const bool is_wei_sparse = prb->wencoding != dnnl_sparse_encoding_undef;
+
     dnn_mem_t src_fp(src_md, fp, src_tag, ref_engine);
-    dnn_mem_t wei_fp(wei_md, fp, wei_tag, ref_engine);
+
+    dnn_mem_t wei_fp;
+    if (is_wei_sparse) {
+        dnnl_memory_desc_t wei_fp_d;
+        std::vector<std::string> tags
+                = {"undef", "a", "ab", "abc", "abcd", "abcde"};
+        SAFE(init_md(&wei_fp_d, wei_md.ndims, wei_md.dims, wei_md.data_type,
+                     tags[wei_md.ndims]),
+                CRIT);
+        wei_fp = dnn_mem_t(wei_fp_d, fp, wei_tag, ref_engine);
+    } else {
+        wei_fp = dnn_mem_t(wei_md, fp, wei_tag, ref_engine);
+    }
+
     dnn_mem_t bia_fp(bia_md, fp, tag::x, ref_engine);
     dnn_mem_t dst_fp(dst_md, fp, tag::abx, ref_engine);
 

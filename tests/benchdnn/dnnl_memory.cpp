@@ -230,6 +230,7 @@ int dnn_mem_t::initialize_memory_create_opencl(
 int dnn_mem_t::initialize_memory_create(const handle_info_t &handle_info) {
     bool is_sycl = is_sycl_engine(engine_);
     bool is_opencl = is_opencl_engine(engine_);
+    bool is_sparse = md_.format_kind == dnnl_format_sparse;
 
     if (handle_info.is_host_ptr) {
         // Host pointer can be used with CPU memory only.
@@ -237,7 +238,11 @@ int dnn_mem_t::initialize_memory_create(const handle_info_t &handle_info) {
         SAFE(is_cpu(engine_) ? OK : FAIL, CRIT);
     }
 
-    if (is_cpu(engine_) && handle_info.is_allocate() && !is_sycl) {
+    // XXX: kernel for decompressing weights produces incorrect results when
+    // using zmalloc. Looks like the kernel makes some asumptions about alignment.
+    // Disable using zmalloc for sparse for now.
+    if (is_cpu(engine_) && handle_info.is_allocate() && !is_sycl
+            && !is_sparse) {
         // Allocate memory for native runtime directly.
         is_data_owner_ = true;
         const size_t alignment = 2 * 1024 * 1024;
