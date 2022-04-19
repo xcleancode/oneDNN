@@ -32,6 +32,8 @@ void check_correctness(const settings_t &s) {
     for_(const auto &i_stag : s.stag)
     for_(const auto &i_wtag : s.wtag)
     for_(const auto &i_dtag : s.dtag)
+    for_(const auto &i_wencoding : s.wencoding)
+    for_(const auto &i_wsparsity : s.wsparsity)
     for_(const auto &i_oscale : s.oscale)
     for_(const auto &i_post_ops : s.post_ops)
     for_(const auto &i_scratchpad_mode : s.scratchpad_mode)
@@ -40,8 +42,8 @@ void check_correctness(const settings_t &s) {
         auto attr = settings_t::get_attr(
                 i_oscale, i_post_ops, i_scratchpad_mode, i_fpmath_mode);
 
-        const prb_t prb(
-                s.desc, i_mb, i_dir, i_cfg, i_stag, i_wtag, i_dtag, attr);
+        const prb_t prb(s.desc, i_mb, i_dir, i_cfg, i_stag, i_wtag, i_dtag,
+                i_wencoding, i_wsparsity, attr);
         std::stringstream ss;
         ss << prb;
         const std::string cpp_pstr = ss.str();
@@ -73,6 +75,10 @@ int bench(int argc, char **argv) {
                 || parse_tag(s.stag, def.stag, argv[0], "stag")
                 || parse_tag(s.wtag, def.wtag, argv[0], "wtag")
                 || parse_tag(s.dtag, def.dtag, argv[0], "dtag")
+                || parse_encoding(
+                        s.wencoding, def.wencoding, argv[0], "wencoding")
+                || parse_sparsity(
+                        s.wsparsity, def.wsparsity, argv[0], "wsparsity")
                 || parse_mb(s.mb, def.mb, argv[0])
                 || parse_attr_oscale(s.oscale, argv[0])
                 || parse_attr_post_ops(s.post_ops, argv[0])

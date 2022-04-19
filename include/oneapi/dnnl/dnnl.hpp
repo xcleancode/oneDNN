@@ -2604,6 +2604,11 @@ struct memory : public handle<dnnl_memory_t> {
                     allow_empty);
         }
 
+        static sparse_desc packed(dim nnze, bool allow_empty = false) {
+            return sparse_desc(dnnl_sparse_encoding_packed, {}, nnze, {}, {},
+                    {}, {}, allow_empty);
+        }
+
         /// Constructs a memory descriptor for a region inside an area
         /// described by this memory descriptor.
         //
