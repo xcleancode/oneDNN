@@ -1207,6 +1207,7 @@ const sparse_encoding_t csr = dnnl_sparse_encoding_csr;
 const sparse_encoding_t csc = dnnl_sparse_encoding_csc;
 const sparse_encoding_t bcsr = dnnl_sparse_encoding_bcsr;
 const sparse_encoding_t bcsc = dnnl_sparse_encoding_bcsc;
+const sparse_encoding_t packed = dnnl_sparse_encoding_packed;
 } // namespace sparse_encoding
 
 using memory_extra_flags_t = dnnl_memory_extra_flags_t;

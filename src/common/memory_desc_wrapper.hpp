@@ -60,8 +60,11 @@ struct memory_desc_wrapper : public c_compatible {
     bool is_sparse_desc() const { return format_kind() == format_kind::sparse; }
 
     const blocking_desc_t &blocking_desc() const {
-        assert(is_blocking_desc());
-        return md_->format_desc.blocking;
+        assert(is_blocking_desc()
+                || (is_sparse_desc()
+                        && sparse_desc().encoding == sparse_encoding::packed));
+        if (!is_sparse_desc()) return md_->format_desc.blocking;
+        return sparse_desc().packed_desc;
     }
     const wino_desc_t &wino_desc() const {
         assert(is_wino_desc());
@@ -246,6 +249,16 @@ struct memory_desc_wrapper : public c_compatible {
                     }
                 }
                 return 0;
+            } else if (sparse_desc().encoding == sparse_encoding::packed) {
+                if (index != 0) return 0;
+                // Only  2D tensors are supported at this point.
+                assert(ndims() == 2);
+                // Only OI16i64o4i is supported at this point.
+                // assert(matches_tag(format_tag::OI16i64o4i)); - TODO: enable for sparse packed.
+                const size_t metadata = padded_dims()[0] * padded_dims()[1] / 64
+                        * sizeof(uint64_t);
+                return (padded_dims()[0] * padded_dims()[1] * data_type_size())
+                        + metadata;
             } else {
                 assert(!"unknown sparse encoding");
                 return 0;
@@ -525,7 +538,9 @@ private:
 
     template <int ORIG_LEN, typename T, typename... Args>
     dim_t _blk_off(T xc, Args... args) const {
-        assert(is_blocking_desc());
+        assert(is_blocking_desc()
+                || (is_sparse_desc()
+                        && sparse_desc().encoding == sparse_encoding::packed));
         constexpr int dc = ORIG_LEN - sizeof...(args) - 1;
         return xc * blocking_desc().strides[dc]
                 + _blk_off<ORIG_LEN, Args...>(args...);

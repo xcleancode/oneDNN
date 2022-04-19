@@ -2840,6 +2840,7 @@ struct memory : public handle<dnnl_memory_t> {
                 case dnnl_sparse_encoding_csc:
                 case dnnl_sparse_encoding_bcsr:
                 case dnnl_sparse_encoding_bcsc: nhandles = 3; break;
+                case dnnl_sparse_encoding_packed: nhandles = 1; break;
                 default: nhandles = 0;
             }
             std::vector<void *> handles(nhandles, DNNL_MEMORY_ALLOCATE);

@@ -1825,9 +1825,8 @@ typedef struct {
     dnnl_dim_t structure_dims[2];
     /// Number of non-zero elements per-dimension.
     dnnl_dim_t structure_nnz[2];
-    /// Reserved for possible future extensions (e.g. `opaque` or offsets
-    /// for submemory).
-    char reserved[64];
+    /// Descriptor for blocked bitmask - opaque.
+    dnnl_blocking_desc_t packed_desc;
 } dnnl_sparse_desc_t;
 
 /// Flags for memory special features
