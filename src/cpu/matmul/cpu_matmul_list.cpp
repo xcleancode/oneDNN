@@ -27,6 +27,7 @@
 
 #if DNNL_X64
 #include "cpu/x64/matmul/brgemm_matmul.hpp"
+#include "cpu/x64/matmul/sparse/jit_uni_matmul.hpp"
 using namespace dnnl::impl::cpu::x64::matmul;
 using namespace dnnl::impl::cpu::x64;
 #elif DNNL_AARCH64 && DNNL_AARCH64_USE_ACL
@@ -46,6 +47,7 @@ using namespace dnnl::impl::cpu::matmul;
 
 // clang-format off
 constexpr impl_list_item_t impl_list[] = REG_MATMUL_P({
+        CPU_INSTANCE_X64(jit_uni_sparse_matmul_t)
         CPU_INSTANCE(ref_sparse_matmul_t)
         CPU_INSTANCE_AARCH64_ACL(acl_matmul_t)
         CPU_INSTANCE_AMX(brgemm_matmul_t<avx512_core_bf16_amx_bf16>)
