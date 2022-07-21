@@ -138,7 +138,7 @@ TEST(sparse_memory_test, TestNCtoCSRreorder) {
     const int nnz = 10;
     auto md_nc = memory::desc({5, 10}, dt::f32, memory::format_tag::nc);
     auto md_csr = memory::desc(
-            {5, 10}, dt::f32, memory::desc::csr(nnz, dt::s8, dt::s8));
+            {5, 10}, dt::f32, memory::desc::csr(nnz, dt::s32, dt::s32));
     memory nc_mem(md_nc, eng);
     memory csr_mem(md_csr, eng);
 
