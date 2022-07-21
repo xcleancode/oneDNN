@@ -124,14 +124,20 @@ status_t dnnl_memory::set_data_handle(void *handle, stream_t *stream) {
 status_t dnnl_memory::reset_memory_storage(
         std::unique_ptr<dnnl::impl::memory_storage_t> &&memory_storage) {
     if (memory_storage) {
-        memory_storages_[0] = std::move(memory_storage);
+        if (memory_storages_.empty())
+            memory_storages_.emplace_back(std::move(memory_storage));
+        else
+            memory_storages_[0] = std::move(memory_storage);
     } else {
         memory_storage_t *memory_storage_ptr;
         status_t status = engine_->create_memory_storage(
                 &memory_storage_ptr, use_runtime_ptr, 0, nullptr);
         if (status != status::success) return status;
 
-        memory_storages_[0].reset(memory_storage_ptr);
+        if (memory_storages_.empty())
+            memory_storages_.emplace_back(memory_storage_ptr);
+        else
+            memory_storages_[0].reset(memory_storage_ptr);
     }
 
     return status::success;
