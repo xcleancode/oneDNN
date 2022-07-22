@@ -146,7 +146,8 @@ struct simple_sparse_reorder_impl<SIMPLE_SPARSE_REORDER_TEMPL_CALL,
 template <SIMPLE_SPARSE_REORDER_TEMPL_DECL>
 struct simple_sparse_reorder_impl<SIMPLE_SPARSE_REORDER_TEMPL_CALL,
         typename utils::enable_if<(is_format_tag(fmt_i)
-                                          && fmt_i == format_tag::oi)
+                                          && (fmt_i == format_tag::oi
+                                                  || fmt_i == format_tag::io))
                         && (is_format_tag(fmt_o)
                                 && fmt_o == format_tag::OI16i64o4i),
                 sparse_spec::reference>::type> {
